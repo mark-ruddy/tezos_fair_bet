@@ -20,11 +20,8 @@ class FairBet(sp.Contract):
     def create_bet(self, creator_sha256_hex_hash):
         # Minimum bet amount is 0.1 Tez or 100000 MuTez
         sp.verify(sp.amount > sp.utils.nat_to_mutez(100000))
-        sp.verify(sp.len(creator_sha256_hex_hash) == 64)
 
         self.data.bet = sp.amount
-
-        # creator_sha256_hex_hash_notation = sp.concat(["0x", creator_sha256_hex_hash])
         self.data.creator_sha256_hex_hash = sp.some(Utils.Bytes.of_string(creator_sha256_hex_hash))
         self.data.creator = sp.some(sp.sender)
 
@@ -33,9 +30,7 @@ class FairBet(sp.Contract):
         sp.verify(self.data.creator.is_some())
         sp.verify(self.data.creator_sha256_hex_hash.is_some())
         sp.verify(sp.amount == self.data.bet)
-        sp.verify(sp.len(matcher_sha256_hex_hash) == 64)
 
-        # matcher_sha256_hex_hash_notation = sp.concat(["0x", matcher_sha256_hex_hash])
         self.data.matcher_sha256_hex_hash = sp.some(Utils.Bytes.of_string(matcher_sha256_hex_hash))
         self.data.matcher = sp.some(sp.sender)
 
@@ -48,10 +43,8 @@ class FairBet(sp.Contract):
         sp.verify(self.data.matcher.is_some())
         sp.verify(self.data.matcher_sha256_hex_hash.is_some())
 
-        random_nat_creator_bytes = Utils.Bytes.of_string(Utils.String.of_int(random_nat_creator))
-        # sp.verify(sp.sha256(random_nat_creator_bytes) == self.data.creator_sha256_hex_hash.open_some())
-        sp.verify(sp.sha256(random_nat_creator_bytes) == Utils.Bytes.of_string("65ca5b3a561412acbf07949d994928a823ebfd0da8e128e1e6369f392fa4d6f8"))
-        self.data.random_nat_creator = sp.some(sp.as_nat(random_nat_creator, message = "Not a valid natural number"))
+        # sp.verify(sp.sha256(Utils.Bytes.of_string(random_nat_creator)) == self.data.matcher_sha256_hex_hash.open_some())
+        self.data.random_nat_matcher = sp.some(sp.as_nat(Utils.Int.of_string(random_nat_creator), message = "Not a valid natural number"))
 
         sp.verify(sp.amount == sp.mutez(0))
         sp.verify(sp.balance == self.data.bet * sp.mutez(2))
@@ -67,9 +60,8 @@ class FairBet(sp.Contract):
         sp.verify(self.data.creator.is_some())
         sp.verify(self.data.creator_sha256_hex_hash.is_some())
 
-        random_nat_matcher_bytes = Utils.Bytes.of_string(Utils.String.of_int(random_nat_matcher))
-        sp.verify(sp.sha256(random_nat_matcher_bytes) == self.data.matcher_sha256_hex_hash.open_some())
-        self.data.random_nat_matcher = sp.some(sp.as_nat(random_nat_matcher, message = "Not a valid natural number"))
+        # sp.verify(sp.sha256(Utils.Bytes.of_string(random_nat_matcher)) == self.data.matcher_sha256_hex_hash.open_some())
+        self.data.random_nat_matcher = sp.some(sp.as_nat(Utils.Int.of_string(random_nat_matcher), message = "Not a valid natural number"))
 
         sp.verify(sp.amount == sp.mutez(0))
         sp.verify(sp.balance == self.data.bet * sp.mutez(2))
@@ -104,7 +96,7 @@ def test_standard_bet():
     scenario += contract.match_bet("5225ea4f514d012f1fe71afc0cb6c802224abe53a0af9c5de1626f44fbe6b2af").run(matcher, amount = sp.tez(1))
 
     # Either the creator/matcher can now reveal their number first, in this case the matcher reveals first
-    scenario += contract.creator_reveal_nat(45009943213).run(creator, amount = sp.tez(0))
+    scenario += contract.creator_reveal_nat("45009943213").run(creator, amount = sp.tez(0))
     # When both numbers are revealed, the bet will execute
     # In this case the creator will win after the XOR and modulo as the result is 0: 45009943213 ^ 96940671234343 = 96897558170506 % 2 == 0
-    scenario += contract.matcher_reveal_nat(96940671234343).run(matcher, amount = sp.tez(0))
+    scenario += contract.matcher_reveal_nat("96940671234343").run(matcher, amount = sp.tez(0))
