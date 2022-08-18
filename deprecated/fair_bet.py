@@ -22,7 +22,7 @@ class FairBet(sp.Contract):
         sp.verify(sp.amount > sp.utils.nat_to_mutez(100000))
 
         self.data.bet = sp.amount
-        self.data.creator_sha256_hex_hash = sp.some(Utils.Bytes.of_string(creator_sha256_hex_hash))
+        self.data.creator_sha256_hex_hash = sp.some(creator_sha256_hex_hash)
         self.data.creator = sp.some(sp.sender)
 
     @sp.entry_point
@@ -31,7 +31,7 @@ class FairBet(sp.Contract):
         sp.verify(self.data.creator_sha256_hex_hash.is_some())
         sp.verify(sp.amount == self.data.bet)
 
-        self.data.matcher_sha256_hex_hash = sp.some(Utils.Bytes.of_string(matcher_sha256_hex_hash))
+        self.data.matcher_sha256_hex_hash = sp.some(matcher_sha256_hex_hash)
         self.data.matcher = sp.some(sp.sender)
 
     # TODO: transition to both users being able to settle and hash, remove asymmetry, remove front-running benefit
@@ -60,7 +60,7 @@ class FairBet(sp.Contract):
         sp.verify(self.data.creator.is_some())
         sp.verify(self.data.creator_sha256_hex_hash.is_some())
 
-        # sp.verify(sp.sha256(Utils.Bytes.of_string(random_nat_matcher)) == self.data.matcher_sha256_hex_hash.open_some())
+        sp.verify(sp.sha256(random_nat_matcher) == self.data.matcher_sha256_hex_hash.open_some())
         self.data.random_nat_matcher = sp.some(sp.as_nat(Utils.Int.of_string(random_nat_matcher), message = "Not a valid natural number"))
 
         sp.verify(sp.amount == sp.mutez(0))
@@ -89,14 +89,15 @@ def test_standard_bet():
 
     contract = FairBet()
     scenario += contract
-    # Creator uses a sha256 hash for the number 45009943213
-    # generated with: "echo -n 45009943213 | sha256sum"
-    scenario += contract.create_bet("6f69f6f2d77b836acfd8810fd6649511279a849cbb3e9447f496554a2d85fd15").run(creator, amount = sp.tez(1))
+    # Creator uses a sha256 hash for the number 45009943213, which is formatted as hexadecimal
+    # generated with this addmittedly convoluted bash command: "echo -n 45009943213 | sha256sum | od -A n -t x1 --width=9999999 | sed 's/ *//g' | awk -v prefix="0x" '{print prefix $0}'"
+    scenario += contract.create_bet("0x366636396636663264373762383336616366643838313066643636343935313132373961383439636262336539343437663439363535346132643835666431350a").run(creator, amount = sp.tez(1))
     # Matcher uses a sha256 hash for the number 96940671234343
-    scenario += contract.match_bet("5225ea4f514d012f1fe71afc0cb6c802224abe53a0af9c5de1626f44fbe6b2af").run(matcher, amount = sp.tez(1))
+    scenario += contract.match_bet("0x353232356561346635313464303132663166653731616663306362366338303232323461626535336130616639633564653136323666343466626536623261660a").run(matcher, amount = sp.tez(1))
 
     # Either the creator/matcher can now reveal their number first, in this case the matcher reveals first
-    scenario += contract.creator_reveal_nat("45009943213").run(creator, amount = sp.tez(0))
+    # This is the non-hashed/plaintext number formatted as hexadecimal
+    scenario += contract.creator_reveal_nat("0xA7ACD3AAD").run(creator, amount = sp.tez(0))
     # When both numbers are revealed, the bet will execute
     # In this case the creator will win after the XOR and modulo as the result is 0: 45009943213 ^ 96940671234343 = 96897558170506 % 2 == 0
-    scenario += contract.matcher_reveal_nat("96940671234343").run(matcher, amount = sp.tez(0))
+    scenario += contract.matcher_reveal_nat("0x582AC245F127").run(matcher, amount = sp.tez(0))
